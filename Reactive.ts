@@ -1,3 +1,4 @@
+/* Reactive v0.1.0 by LittleSound, Origin: https://github.com/LittleSound/reactive/blob/main/Reactive.ts */
 function Reactive() {
   const targetMap:WeakMap<object, Map<PropertyKey, Set<() => any>>> = new WeakMap();
   // const targetMap = new WeakMap();
@@ -26,8 +27,9 @@ function Reactive() {
 
   /** 可以被观察的值类型 */
   // const isObservableType = makeMap('Object,Array,Map,Set,WeakMap,WeakSet')
+  // 暂时屏蔽暂不支持代理的 Map, Set, WeakMap, WeakSet
   const isObservableType = makeMap('Object,Array')
-  
+
   /** 是不是 Symbol 内置方法 */
   const isBasicSymbol = (() => {
     const symbolObjs: any = {}
