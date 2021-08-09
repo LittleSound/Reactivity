@@ -25,9 +25,9 @@ function Reactive() {
   const arrayKeyIsOverflow = (target: object, key: PropertyKey) => typeof key !== 'symbol' && key >= ((target as any).length)
 
   /** 可以被观察的值类型 */
-  const isObservableType = makeMap(
-    'Object,Array,Map,Set,WeakMap,WeakSet'
-  )
+  // const isObservableType = makeMap('Object,Array,Map,Set,WeakMap,WeakSet')
+  const isObservableType = makeMap('Object,Array')
+  
   /** 是不是 Symbol 内置方法 */
   const isBasicSymbol = (() => {
     const symbolObjs: any = {}
