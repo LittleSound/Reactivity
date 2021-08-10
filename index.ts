@@ -1,4 +1,4 @@
-import  { reactive, effect, ref, computed } from './Reactive'
+import  { reactive, effect, ref, computed } from './Reactivity'
 
 // specify('should observe symbol keyed properties')
 function run () {

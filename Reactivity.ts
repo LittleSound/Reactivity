@@ -1,6 +1,6 @@
-/* Reactive v0.1.0 by LittleSound, Origin: https://github.com/LittleSound/reactive/blob/main/Reactive.ts */
+/* Reactivity v0.1.0 by LittleSound, Origin: https://github.com/LittleSound/reactive/blob/main/Reactivity.ts */
 
-function Reactive() {
+function reactivity() {
   const __DEV__ = true
   const targetMap:WeakMap<object, Map<PropertyKey, Set<() => any>>> = new WeakMap();
   // const targetMap = new WeakMap();
@@ -249,7 +249,7 @@ function Reactive() {
         if (setter) setter(value)
         return true
       }
-    });
+    })
     
     // getter 变化时更新 value 的值
     effect(() => {
@@ -279,11 +279,11 @@ function Reactive() {
     isRef,
   }
 }
-const newReactive = Reactive()
-export default newReactive
-export const effect = newReactive.effect
-export const reactive = newReactive.reactive
-export const ref = newReactive.ref
-export const computed = newReactive.computed
-export const isReactive = newReactive.isReactive
-export const isRef = newReactive.isRef
+const Reactivity = reactivity()
+export default Reactivity
+export const effect = Reactivity.effect
+export const reactive = Reactivity.reactive
+export const ref = Reactivity.ref
+export const computed = Reactivity.computed
+export const isReactive = Reactivity.isReactive
+export const isRef = Reactivity.isRef

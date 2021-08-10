@@ -1,4 +1,4 @@
-import  { reactive, effect, ref, computed } from './Reactive'
+import  { reactive, effect, ref, computed } from './Reactivity'
 import { it, expect, specify, startTest } from './UnitTest'
 
 // specify('name')
@@ -377,17 +377,43 @@ it('should observe basic properties', () => {
   })
 
   it('计算函数 setter', () => {
+    let dummy
     const num1 = ref(1)
     const doubled = computed(
       () => num1.value * 2,
       val => num1.value = val
     )
+    
+    effect(() => dummy = doubled.value)
+
     expect(num1.value).toBe(1)
     expect(doubled.value).toBe(2)
+    expect(dummy).toBe(2)
 
     doubled.value = 10
     expect(num1.value).toBe(10)
     expect(doubled.value).toBe(20)
+    expect(dummy).toBe(20)
+  })
+
+  it('计算函数 setter 2', () => {
+    let dummy
+    const str1 = ref('abcd')
+    const doubled = computed(
+      () => str1.value.toUpperCase(),
+      val => str1.value = val
+    )
+    
+    effect(() => dummy = doubled.value)
+
+    expect(str1.value).toBe('abcd')
+    expect(doubled.value).toBe('ABCD')
+    expect(dummy).toBe('ABCD')
+
+    doubled.value = 'xyz'
+    expect(str1.value).toBe('xyz')
+    expect(doubled.value).toBe('XYZ')
+    expect(dummy).toBe('XYZ')
   })
 
   startTest()

@@ -4,7 +4,7 @@
 
 ## 如何使用？
 
-将 `Reactive.ts` 文件复制到你需要的项目中。
+将 `Reactivity.ts` 文件复制到你需要的项目中。
 
 
 
@@ -15,7 +15,7 @@
 #### object:
 
 ```typescript
-import  { reactive, effect } from './Reactive'
+import  { reactive, effect } from './Reactivity'
 
 // 创建响应式对象
 const counter = reactive({ num1: 1, num2: 2 })
@@ -34,7 +34,7 @@ counter.num2 = 5 // echo: 15
 #### array:
 
 ```typescript
-import  { reactive, effect } from './Reactive'
+import  { reactive, effect } from './Reactivity'
 
 let dummy
 // 创建响应式对象
@@ -55,6 +55,7 @@ console.log(dummy) // echo: World!
 ### ref 和 computed 方法：
 
 ```typescript
+import  { ref, computed } from './Reactivity'
 // 创建基础类型的响应式引用
 const num1 = ref(1)
 const num2 = ref(1)
