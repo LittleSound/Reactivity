@@ -376,4 +376,18 @@ it('should observe basic properties', () => {
     expect(record).toBe(undefined)
   })
 
+  it('计算函数 setter', () => {
+    const num1 = ref(1)
+    const doubled = computed(
+      () => num1.value * 2,
+      val => num1.value = val
+    )
+    expect(num1.value).toBe(1)
+    expect(doubled.value).toBe(2)
+
+    doubled.value = 10
+    expect(num1.value).toBe(10)
+    expect(doubled.value).toBe(20)
+  })
+
   startTest()

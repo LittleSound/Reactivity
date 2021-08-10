@@ -49,7 +49,6 @@ function Reactive() {
       for(let i = 0, l = (this as any).length; i < l; i++) track(arr, i + '')
 
       // 我们首先使用原始 args 运行该方法（可能是反应性的）
-      console.log('abc', this)
       const res = arr[key](...args)
       if (res === -1 || res === false) {
         // 如果这不起作用，请使用原始值再次运行它
@@ -155,7 +154,7 @@ function Reactive() {
       }
       else if (isBasicSymbol(key)) return result
       
-      if (result instanceof Object && !result[reactiveTag]) {
+      if (result instanceof Object && isObservableType(toRawType(result)) && !result[reactiveTag]) {
         Reflect.set(target, key, result = reactive(result))
       }
       track(target, key)
@@ -223,18 +222,41 @@ function Reactive() {
     return res
   }
 
-  /** 创建响应式引用 */
-  function ref<T>(val?: T): { value: T } {
-    const res = reactive({}) as any
+  /** 根据传入的 handler 创建响应式引用 */
+  function createRef<T>(val: T | undefined, handler: any): { value: T } {
+    const res = new Proxy({}, handler) as any
     res[refTag] = true
     res.value = val
     return res
   }
 
+  /** 创建响应式引用 */
+  function ref<T>(val?: T): { value: T } {
+    return createRef(val, reactiveHandler)
+  }
+
   /** 计算函数 */
-  function computed(getter: () => unknown) {
-    const result = ref();
-    effect(() => result.value = getter())
+  function computed<T>(getter: () => T, setter?: (value: any) => void): { value: T } {
+    // 是否允许写入原始值的开关
+    let isCanWrite = true
+    // 创建 ref，改写它的 set 陷阱
+    const result = createRef<T>(undefined, {
+      ...reactiveHandler,
+      set (target: any, key: PropertyKey, value: any, receiver: any) {
+        // 没有开启 isCanWrite 时，写入数据将会触发 setter（如果有的话）
+        if (isCanWrite) return reactiveHandler.set(target, key, value, receiver)
+        if (key !== 'value') return
+        if (setter) setter(value)
+        return true
+      }
+    });
+    
+    // getter 变化时更新 value 的值
+    effect(() => {
+      isCanWrite = true
+      result.value = getter()
+      isCanWrite = false
+    })
     return result
   }
 
