@@ -238,13 +238,13 @@ function reactivity() {
   /** 计算函数 */
   function computed<T>(getter: () => T, setter?: (value: any) => void): { value: T } {
     // 是否允许写入原始值的开关
-    let isCanWrite = true
+    let isWritable = true
     // 创建 ref，改写它的 set 陷阱
     const result = createRef<T>(undefined, {
       ...reactiveHandler,
       set (target: any, key: PropertyKey, value: any, receiver: any) {
         // 没有开启 isCanWrite 时，写入数据将会触发 setter（如果有的话）
-        if (isCanWrite) return reactiveHandler.set(target, key, value, receiver)
+        if (isWritable) return reactiveHandler.set(target, key, value, receiver)
         if (key !== 'value') return
         if (setter) setter(value)
         return true
@@ -253,9 +253,9 @@ function reactivity() {
     
     // getter 变化时更新 value 的值
     effect(() => {
-      isCanWrite = true
+      isWritable = true
       result.value = getter()
-      isCanWrite = false
+      isWritable = false
     })
     return result
   }
