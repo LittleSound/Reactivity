@@ -1,5 +1,7 @@
 /* Reactive v0.1.0 by LittleSound, Origin: https://github.com/LittleSound/reactive/blob/main/Reactive.ts */
+
 function Reactive() {
+  const __DEV__ = true
   const targetMap:WeakMap<object, Map<PropertyKey, Set<() => any>>> = new WeakMap();
   // const targetMap = new WeakMap();
   /** effect 调用栈 */
@@ -10,6 +12,7 @@ function Reactive() {
   const reactiveTag = Symbol('isReactive')
   /** ref 标签 */
   const refTag = Symbol('isRef')
+  const rawTag = Symbol('raw')
 
   /** 检查对象是否有响应式标签 */
   const isSymbolTag = (key: PropertyKey) => key === reactiveTag || key === refTag
@@ -41,8 +44,17 @@ function Reactive() {
   /** 数组遍历操作检测 */
   const arrayInstrumentations: Record<string, Function> = {}
   ;['includes', 'indexOf', 'lastIndexOf']
-    .forEach(item => arrayInstrumentations[item] = (arr: any[]) => {
-      for(let i = 0, l = arr.length; i < l; i++) track(arr, i + '')
+    .forEach(key => arrayInstrumentations[key] = function (...args: any[]) {
+      const arr = toRaw(this) as any
+      for(let i = 0, l = (this as any).length; i < l; i++) track(arr, i + '')
+
+      // 我们首先使用原始 args 运行该方法（可能是反应性的）
+      console.log('abc', this)
+      const res = arr[key](...args)
+      if (res === -1 || res === false) {
+        // 如果这不起作用，请使用原始值再次运行它
+        return arr[key](...args.map(toRaw))
+      } else return res
     })
   
   const hasOwnProperty = Object.prototype.hasOwnProperty
@@ -51,11 +63,26 @@ function Reactive() {
     val: object,
     key: PropertyKey
   ): key is keyof typeof val => hasOwnProperty.call(val, key)
-
+  
+  /** 比较新旧值是否变化 */
   const hasChanged = (oldVal: any, newVal: any) => {
     if (typeof oldVal === 'number' && isNaN(oldVal) && isNaN(newVal)) return false
     return oldVal !== newVal
   }
+
+  const toRaw = <T>(obj: T): T => {
+    const raw = obj && (obj as any)[rawTag]
+    return raw ? toRaw(raw) : obj
+  }
+
+  /** 给对象添加新的值 */
+  // const def = (obj: object, key: string | symbol, value: any) => {
+  //   Object.defineProperty(obj, key, {
+  //     configurable: true,
+  //     enumerable: false,
+  //     value
+  //   })
+  // }
 
   /**
    * 响应变更
@@ -83,7 +110,9 @@ function Reactive() {
     if (!activeEffect || isSymbolTag(key)) return
     // 通过传入的 target 对象，在 targetMap 中查找相应的响应式对象
     let depsMap = targetMap.get(target)
-    if (!depsMap) targetMap.set(target, depsMap = new Map())
+    if (!depsMap) {
+      targetMap.set(target, depsMap = new Map())
+    }
     // 获取响应式对象的属性监听列表
     let dep = depsMap.get(key)
     if (!dep) depsMap.set(key, dep = new Set())
@@ -115,12 +144,14 @@ function Reactive() {
   const reactiveHandler = {
     /** 读取 */
     get (target: object, key: PropertyKey, receiver: any) {
+      if (key === rawTag) return target  // 如果key是raw 则直接返回目标对象
+      if (key === reactiveTag) return true
       let result = Reflect.get(target, key, receiver)
       const targetIsArray = isArray(target)
 
       // 如果目标对象是数组并且 key 属于三个方法之一 ['includes', 'indexOf', 'lastIndexOf']，则追踪数组的每个元素
       if (targetIsArray && hasOwn(arrayInstrumentations, key)) {
-        arrayInstrumentations[key](target)
+        return Reflect.get(arrayInstrumentations, key, receiver)
       }
       else if (isBasicSymbol(key)) return result
       
@@ -183,10 +214,12 @@ function Reactive() {
     // 已经是响应式对象了，则直接返回原始值
     if (target && (target as any)[reactiveTag]) return target
     // 不是可被观察的类型，则直接返回原始值
-    if (!isObservableType(toRawType(target))) return target
+    if (!isObservableType(toRawType(target))) {
+      if (__DEV__) console.warn(`value cannot be made reactive: ${String(target)}`)
+      return target
+    }
     // 使用 reactiveHandler 创建响应式对象
     const res = new Proxy(target, reactiveHandler)
-    res[reactiveTag] = true
     return res
   }
 
