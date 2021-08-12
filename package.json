@@ -1,5 +1,14 @@
 {
+    "name": "reactivity",
+    "scripts": {
+        "index": "ts-node index",
+        "unitTest": "ts-node testCase"
+    },
     "devDependencies": {
         "@types/node": "^16.4.13"
+    },
+    "dependencies": {
+        "ts-node": "^10.2.0",
+        "typescript": "^4.3.5"
     }
 }
