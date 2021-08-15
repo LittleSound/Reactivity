@@ -14,6 +14,9 @@ function reactivity() {
   const refTag = Symbol('isRef')
   const rawTag = Symbol('raw')
 
+  /**  */
+  const enum TargetType { INVALID, COMMON, COLLECTION }
+
   /** 检查对象是否有响应式标签 */
   const isSymbolTag = (key: PropertyKey) => key === reactiveTag || key === refTag
   /** 检查对象是否是数组 */
@@ -72,6 +75,27 @@ function reactivity() {
   const toRaw = <T>(obj: T): T => {
     const raw = obj && (obj as any)[rawTag]
     return raw ? toRaw(raw) : obj
+  }
+
+  const targetTypeMap = (rawType: string) => {
+    switch (rawType) {
+      case 'Object':
+      case 'Array':
+        return TargetType.COMMON
+      case 'Map':
+      case 'Set':
+      case 'WeakMap':
+      case 'WeakSet':
+        return TargetType.COLLECTION
+      default:
+        return TargetType.INVALID
+    }
+  }
+
+  const getTargetType = (value: unknown)  => {
+    return !Object.isExtensible(value)
+      ? TargetType.INVALID
+      : targetTypeMap(toRawType(value))
   }
 
   /** 给对象添加新的值 */
@@ -140,7 +164,8 @@ function reactivity() {
     if (dep) dep.forEach((item: any) => activeEffect !== item && effect(item))
   }
 
-  const reactiveHandler = {
+  /** 普通对象的代理处理器 */
+  const baseHandler = {
     /** 读取 */
     get (target: object, key: PropertyKey, receiver: any) {
       if (key === rawTag) return target  // 如果key是raw 则直接返回目标对象
@@ -202,6 +227,22 @@ function reactivity() {
       return Reflect.ownKeys(target)
     }
   }
+  const instrumentations = {}
+  /** 集合类型的代理处理器 */
+  const collectionHandler = {
+    get (target: object, key: PropertyKey, receiver: any) {
+      if (key === rawTag) return target
+      if (key === reactiveTag) return true
+
+      return Reflect.get(
+        hasOwn(instrumentations, key) && key in target
+          ? instrumentations
+          : target,
+        key,
+        receiver
+      )
+    }
+  }
 
   /** 响应式对象类型 */
   type reactiveType<T> = T & {
@@ -213,12 +254,15 @@ function reactivity() {
     // 已经是响应式对象了，则直接返回原始值
     if (target && (target as any)[reactiveTag]) return target
     // 不是可被观察的类型，则直接返回原始值
-    if (!isObservableType(toRawType(target))) {
+    const targetType = targetTypeMap(toRawType(target))
+    if (targetType === TargetType.INVALID) {
       if (__DEV__) console.warn(`value cannot be made reactive: ${String(target)}`)
       return target
     }
     // 使用 reactiveHandler 创建响应式对象
-    const res = new Proxy(target, reactiveHandler)
+    const res = new Proxy(
+      target,
+      targetType === TargetType.COLLECTION  ? {} : baseHandler)
     return res
   }
 
@@ -232,7 +276,7 @@ function reactivity() {
 
   /** 创建响应式引用 */
   function ref<T>(val?: T): { value: T } {
-    return createRef(val, reactiveHandler)
+    return createRef(val, baseHandler)
   }
 
   /** 计算函数 */
@@ -241,10 +285,10 @@ function reactivity() {
     let isWritable = true
     // 创建 ref，改写它的 set 陷阱
     const result = createRef<T>(undefined, {
-      ...reactiveHandler,
+      ...baseHandler,
       set (target: any, key: PropertyKey, value: any, receiver: any) {
         // 没有开启 isCanWrite 时，写入数据将会触发 setter（如果有的话）
-        if (isWritable) return reactiveHandler.set(target, key, value, receiver)
+        if (isWritable) return baseHandler.set(target, key, value, receiver)
         if (key !== 'value') return
         if (setter) setter(value)
         return true
