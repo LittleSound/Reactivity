@@ -1,4 +1,4 @@
-import  { reactive, effect, ref, computed } from './Reactivity'
+import  { reactive, effect, ref, computed, toRef, toRefs } from './Reactivity'
 import { it, expect, specify, startTest } from './UnitTest'
 
 // specify('name')
@@ -414,6 +414,38 @@ it('should observe basic properties', () => {
     expect(str1.value).toBe('xyz')
     expect(doubled.value).toBe('XYZ')
     expect(dummy).toBe('XYZ')
+  })
+
+  it('toRef 测试', () => {
+    const obj = reactive({ a: 1, b:'b', c: false })
+    const refa = toRef(obj, 'a')
+    expect(obj.a).toBe(1)
+    expect(refa.value).toBe(1)
+    obj.a = 50
+    expect(obj.a).toBe(50)
+    expect(refa.value).toBe(50)
+    refa.value = -100
+    expect(obj.a).toBe(-100)
+    expect(refa.value).toBe(-100)
+  })
+
+  it('toRefs 测试', () => {
+    const obj = reactive({ a: 1, b:'b', c: { d: 'd' } })
+    const { a, b, c } = toRefs(obj)
+    expect(obj.a).toBe(1)
+    expect(obj.b).toBe('b')
+    expect(obj.c.d).toBe('d')
+    expect(obj.a).toBe(a.value)
+    expect(obj.b).toBe(b.value)
+    expect(obj.c).toBe(c.value)
+
+    c.value.d = 'ok'
+    expect(obj.c.d).toBe('ok')
+    expect(obj.c).toBe(c.value)
+
+    obj.c.d = 'no'
+    expect(c.value.d).toBe('no')
+    expect(obj.c).toBe(c.value)
   })
 
   startTest()
