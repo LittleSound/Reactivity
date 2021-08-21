@@ -1,5 +1,26 @@
 /* Reactivity v0.1.0 by LittleSound, Origin: https://github.com/LittleSound/reactive/blob/main/Reactivity.ts */
 
+/** 响应式对象类型 */
+export type ReactiveType<T> = {
+  [K in keyof T]: T[K]
+}
+
+export type RefType<T> = {
+  value: T
+}
+
+export type ToRefsType<T> = {
+  [K in keyof T]: RefType<T[K]>
+}
+
+type aa = {
+  a:number,b:number
+}
+type aak = keyof aa
+
+const aakv: aak = 'a'
+console.log(aakv)
+
 function reactivity() {
   const __DEV__ = true
   const targetMap:WeakMap<object, Map<PropertyKey, Set<() => any>>> = new WeakMap();
@@ -202,14 +223,9 @@ function reactivity() {
       return Reflect.ownKeys(target)
     }
   }
-
-  /** 响应式对象类型 */
-  type reactiveType<T> = T & {
-    [x: string]: any
-  }
   
   /** 创建响应式对象 */
-  function reactive<T extends object>(target: T): reactiveType<T> {
+  function reactive<T extends object>(target: T): ReactiveType<T> {
     // 已经是响应式对象了，则直接返回原始值
     if (target && (target as any)[reactiveTag]) return target
     // 不是可被观察的类型，则直接返回原始值
@@ -223,7 +239,7 @@ function reactivity() {
   }
 
   /** 根据传入的 handler 创建响应式引用 */
-  function createRef<T>(val: T | undefined, handler: any): { value: T } {
+  function createRef<T>(val: T | undefined, handler: any): RefType<T> {
     const res = new Proxy({}, handler) as any
     res[refTag] = true
     res.value = val
@@ -231,12 +247,12 @@ function reactivity() {
   }
 
   /** 创建响应式引用 */
-  function ref<T>(val?: T): { value: T } {
+  function ref<T>(val?: T): RefType<T> {
     return createRef(val, reactiveHandler)
   }
 
   /** 计算函数 */
-  function computed<T>(getter: () => T, setter?: (value: any) => void): { value: T } {
+  function computed<T>(getter: () => T, setter?: (value: any) => void): RefType<T> {
     // 是否允许写入原始值的开关
     let isWritable = true
     // 创建 ref，改写它的 set 陷阱
@@ -260,6 +276,30 @@ function reactivity() {
     return result
   }
 
+  /**
+   * 根据传入的响应式对象创建指定键值对的 ref 副本，并互相绑定
+   */
+  function toRef<T extends Object, K extends keyof T>(object: T, key: K): RefType<T[K]> {
+    if (isRef(object[key])) return (object as any)
+    // 不是可被观察的类型，则直接返回原始值
+    return computed(() => object[key], (val: T[K]) => object[key] = val)
+  }
+  /**
+   * 遍历传入的响应式对象，创建 ref 副本，并互相绑定
+   * @param object 响应式对象
+   * @returns 键都被转换为 ref
+   */
+  function toRefs <T extends Object>(object: T): ToRefsType<T> {
+    if (__DEV__ && !isReactive(object)) {
+      console.warn(`toRefs() expects a reactive object but received a plain one.`)
+    }
+    const res = isArray(object) ? new Array((object as any).length) : {} as any
+    for (const key in object) {
+      res[key] = toRef(object, key as any)
+    }
+    return res
+  }
+
   /** 判断一个对象是不是 reactive 创建的 */
   function isReactive(obj: any) {
     return obj && obj instanceof Object && !!obj[reactiveTag]
@@ -277,6 +317,8 @@ function reactivity() {
     computed,
     isReactive,
     isRef,
+    toRef,
+    toRefs,
   }
 }
 const Reactivity = reactivity()
@@ -287,3 +329,5 @@ export const ref = Reactivity.ref
 export const computed = Reactivity.computed
 export const isReactive = Reactivity.isReactive
 export const isRef = Reactivity.isRef
+export const toRef = Reactivity.toRef
+export const toRefs = Reactivity.toRefs
