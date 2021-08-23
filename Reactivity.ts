@@ -1,8 +1,34 @@
 /* Reactivity v0.1.0 by LittleSound, Origin: https://github.com/LittleSound/reactive/blob/main/Reactivity.ts */
 
+/** 响应式对象类型 */
+export type Reactive<T = {}> = {
+  [K in keyof T]: T[K]
+}
+
+export type Ref<T = any> = {
+  value: T
+}
+
+export type ToRefsType<T> = {
+  [K in keyof T]: Ref<T[K]>
+}
+export type Computed<T = any, S = undefined> = S extends Function
+  ? Ref<T>
+  : {
+    readonly value: T
+  }
+
+type aa = {
+  a: number, b: number
+}
+type aak = keyof aa
+
+const aakv: aak = 'a'
+console.log(aakv)
+
 function reactivity() {
   const __DEV__ = true
-  const targetMap:WeakMap<object, Map<PropertyKey, Set<() => any>>> = new WeakMap();
+  const targetMap: WeakMap<object, Map<PropertyKey, Set<() => any>>> = new WeakMap();
   // const targetMap = new WeakMap();
   /** effect 调用栈 */
   const effectStack: Array<() => any> = []
@@ -20,7 +46,7 @@ function reactivity() {
   /** 检查对象是否有响应式标签 */
   const isSymbolTag = (key: PropertyKey) => key === reactiveTag || key === refTag
   /** 检查对象是否是数组 */
-  const isArray = (item: any) => Array.isArray(item)
+  const isArray = (item: any): item is Array<any> => Array.isArray(item)
   /** 获取类型 */
   const toRawType = (value: any) => Object.prototype.toString.call(value).slice(8, -1)
   /** 导入一个逗号分隔的字符串列表, 返回一个方法用于判断一个值是否在这个列表中 */
@@ -40,32 +66,32 @@ function reactivity() {
   const isBasicSymbol = (() => {
     const symbolObjs: any = {}
     'iterator,match,replace,search,split,hasInstance,isConcatSpreadable,unscopables,species,toPrimitive,toStringTag'
-        .split(',').forEach(item => symbolObjs[(Symbol as any)[item]] = true)
+      .split(',').forEach(item => symbolObjs[(Symbol as any)[item]] = true)
     return (key: PropertyKey) => !!symbolObjs[key]
   })()
-  
+
   /** 数组遍历操作检测 */
   const arrayInstrumentations: Record<string, Function> = {}
-  ;['includes', 'indexOf', 'lastIndexOf']
-    .forEach(key => arrayInstrumentations[key] = function (...args: any[]) {
-      const arr = toRaw(this) as any
-      for(let i = 0, l = (this as any).length; i < l; i++) track(arr, i + '')
+    ;['includes', 'indexOf', 'lastIndexOf']
+      .forEach(key => arrayInstrumentations[key] = function (...args: any[]) {
+        const arr = toRaw(this) as any
+        for (let i = 0, l = (this as any).length; i < l; i++) track(arr, i + '')
 
-      // 我们首先使用原始 args 运行该方法（可能是反应性的）
-      const res = arr[key](...args)
-      if (res === -1 || res === false) {
-        // 如果这不起作用，请使用原始值再次运行它
-        return arr[key](...args.map(toRaw))
-      } else return res
-    })
-  
+        // 我们首先使用原始 args 运行该方法（可能是反应性的）
+        const res = arr[key](...args)
+        if (res === -1 || res === false) {
+          // 如果这不起作用，请使用原始值再次运行它
+          return arr[key](...args.map(toRaw))
+        } else return res
+      })
+
   const hasOwnProperty = Object.prototype.hasOwnProperty
   /** 是否拥有这个键 */
   const hasOwn = (
     val: object,
     key: PropertyKey
   ): key is keyof typeof val => hasOwnProperty.call(val, key)
-  
+
   /** 比较新旧值是否变化 */
   const hasChanged = (oldVal: any, newVal: any) => {
     if (typeof oldVal === 'number' && isNaN(oldVal) && isNaN(newVal)) return false
@@ -167,7 +193,7 @@ function reactivity() {
   /** 普通对象的代理处理器 */
   const baseHandler = {
     /** 读取 */
-    get (target: object, key: PropertyKey, receiver: any) {
+    get(target: object, key: PropertyKey, receiver: any) {
       if (key === rawTag) return target  // 如果key是raw 则直接返回目标对象
       if (key === reactiveTag) return true
       let result = Reflect.get(target, key, receiver)
@@ -178,18 +204,17 @@ function reactivity() {
         return Reflect.get(arrayInstrumentations, key, receiver)
       }
       else if (isBasicSymbol(key)) return result
-      
+      // 深层跟踪：如果获取的值是对象类型，并且不是响应式对象，则转为响应式对象。
       if (result instanceof Object && isObservableType(toRawType(result)) && !result[reactiveTag]) {
         Reflect.set(target, key, result = reactive(result))
       }
       track(target, key)
 
-      if (!targetIsArray && isRef(result)) return result.value
       return result
     },
 
     /** 写入 */
-    set (target: any, key: PropertyKey, value: any, receiver: any) {
+    set(target: any, key: PropertyKey, value: any, receiver: any) {
       const hadkey = hasOwn(target, key)
       const oldVal = (target as any)[key]
       const result = Reflect.set(target, key, value, receiver)
@@ -207,7 +232,7 @@ function reactivity() {
     },
 
     /** 删除 */
-    deleteProperty (target: any, key: PropertyKey) {
+    deleteProperty(target: any, key: PropertyKey) {
       const hadkey = hasOwn(target, key)
       const result = Reflect.deleteProperty(target, key)
       if (result && hadkey) trigger(target, key)
@@ -215,14 +240,14 @@ function reactivity() {
     },
 
     /** in 运算符 */
-    has (target: any, key: PropertyKey) {
+    has(target: any, key: PropertyKey) {
       const result = Reflect.has(target, key)
       track(target, key)
       return result
     },
 
     /** 迭代器 */
-    ownKeys (target: any) {
+    ownKeys(target: any) {
       track(target, Symbol.iterator)
       return Reflect.ownKeys(target)
     }
@@ -244,13 +269,8 @@ function reactivity() {
     }
   }
 
-  /** 响应式对象类型 */
-  type reactiveType<T> = T & {
-    [x: string]: any
-  }
-  
   /** 创建响应式对象 */
-  function reactive<T extends object>(target: T): reactiveType<T> {
+  function reactive<T extends object>(target: T): Reactive<T> {
     // 已经是响应式对象了，则直接返回原始值
     if (target && (target as any)[reactiveTag]) return target
     // 不是可被观察的类型，则直接返回原始值
@@ -267,7 +287,7 @@ function reactivity() {
   }
 
   /** 根据传入的 handler 创建响应式引用 */
-  function createRef<T>(val: T | undefined, handler: any): { value: T } {
+  function createRef<T>(val: T | undefined, handler: any): Ref<T> {
     const res = new Proxy({}, handler) as any
     res[refTag] = true
     res.value = val
@@ -275,18 +295,22 @@ function reactivity() {
   }
 
   /** 创建响应式引用 */
-  function ref<T>(val?: T): { value: T } {
+  function ref<T>(val?: T): Ref<T> {
     return createRef(val, baseHandler)
   }
 
   /** 计算函数 */
-  function computed<T>(getter: () => T, setter?: (value: any) => void): { value: T } {
+  function computed<
+    T,
+    S extends ((value: T) => void) | undefined
+  >
+    (getter: () => T, setter?: S): Computed<T, S> {
     // 是否允许写入原始值的开关
     let isWritable = true
     // 创建 ref，改写它的 set 陷阱
     const result = createRef<T>(undefined, {
       ...baseHandler,
-      set (target: any, key: PropertyKey, value: any, receiver: any) {
+      set(target: any, key: PropertyKey, value: any, receiver: any) {
         // 没有开启 isCanWrite 时，写入数据将会触发 setter（如果有的话）
         if (isWritable) return baseHandler.set(target, key, value, receiver)
         if (key !== 'value') return
@@ -294,7 +318,7 @@ function reactivity() {
         return true
       }
     })
-    
+
     // getter 变化时更新 value 的值
     effect(() => {
       isWritable = true
@@ -304,13 +328,38 @@ function reactivity() {
     return result
   }
 
+  /**
+   * 根据传入的响应式对象创建指定键值对的 ref 副本，并互相绑定
+   */
+  function toRef<T extends Object, K extends keyof T>(object: T, key: K): Ref<T[K]> {
+    return isRef(object[key])
+      ? (object[key] as any)
+      : computed(() => object[key], (val: T[K]) => object[key] = val)
+  }
+  /**
+   * 遍历传入的响应式对象，创建 ref 副本，并互相绑定
+   * @param object 响应式对象
+   * @returns 键都被转换为 ref
+   */
+  function toRefs<T extends Object>(object: T): ToRefsType<T> {
+    if (__DEV__ && !isReactive(object)) {
+      console.warn(`toRefs() expects a reactive object but received a plain one.`)
+    }
+    const res = isArray(object) ? new Array((object as any).length) : {} as any
+    for (const key in object) {
+      res[key] = toRef(object, key as any)
+    }
+    return res
+  }
+
   /** 判断一个对象是不是 reactive 创建的 */
-  function isReactive(obj: any) {
+  function isReactive<T>(obj: any): obj is Reactive<T> {
     return obj && obj instanceof Object && !!obj[reactiveTag]
   }
 
   /** 判断一个对象是不是 ref 创建的 */
-  function isRef(obj: any) {
+  function isRef<T>(obj: Ref<T> | unknown): obj is Ref<T>
+  function isRef<T>(obj: any): obj is Ref<any> {
     return obj && obj instanceof Object && !!obj[refTag]
   }
 
@@ -321,6 +370,8 @@ function reactivity() {
     computed,
     isReactive,
     isRef,
+    toRef,
+    toRefs,
   }
 }
 const Reactivity = reactivity()
@@ -331,3 +382,5 @@ export const ref = Reactivity.ref
 export const computed = Reactivity.computed
 export const isReactive = Reactivity.isReactive
 export const isRef = Reactivity.isRef
+export const toRef = Reactivity.toRef
+export const toRefs = Reactivity.toRefs
